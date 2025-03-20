@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Transcript Extractor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .transcript-container {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .loading-animation {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: inline-block;
+            border-top: 4px solid #fff;
+            border-right: 4px solid transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">YouTube Transcript Extractor</h1>
+            <p class="text-gray-600 text-lg">Enter a YouTube URL to get the video transcript</p>
+        </div>
+
+        <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+            <!-- Input Form -->
+            <div class="p-6 gradient-bg">
+                <form id="transcriptForm" class="flex flex-col md:flex-row gap-4">
+                    <input 
+                        type="url" 
+                        id="youtubeUrl" 
+                        placeholder="Paste YouTube URL (e.g., https://www.youtube.com/watch?v=h5qWn0SfTXA)" 
+                        class="flex-grow px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                    >
+                    <button 
+                        type="submit" 
+                        class="bg-purple-700 hover:bg-purple-800 text-white px-6 py-3 rounded-lg transition duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                    >
+                        Get Transcript
+                    </button>
+                </form>
+            </div>
+
+            <!-- Status and Results -->
+            <div class="p-6">
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden flex flex-col items-center justify-center py-12">
+                    <div class="loading-animation mb-6"></div>
+                    <p class="text-gray-600 text-lg mb-2">Processing Your Request</p>
+                    <p class="text-gray-500">This may take up to 10 minutes for long videos...</p>
+                    <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                        <p class="text-blue-800 text-sm">The transcript will appear here when ready. Please don't close this page.</p>
+                    </div>
+                </div>
+
+                <!-- Result State -->
+                <div id="resultState" class="hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Transcript Result</h2>
+                        <div>
+                            <button id="copyBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg mr-2 transition">
+                                Copy
+                            </button>
+                            <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                    <div id="transcriptContainer" class="transcript-container bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <pre id="transcriptResult" class="whitespace-pre-wrap text-gray-700"></pre>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div id="initialState" class="py-12 text-center">
+                    <p class="text-gray-600">Enter a YouTube URL above to get started</p>
+                    <p class="text-gray-600">For Example:</p>
+                    <p class="text-gray-600">https://www.youtube.com/watch?v=h5qWn0SfTXA</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="hidden py-8 text-center">
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <p class="text-red-700 mb-2 font-medium">Error processing your request</p>
+                        <p id="errorMessage" class="text-red-600"></p>
+                    </div>
+                    <button id="tryAgainBtn" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('transcriptForm');
+            const initialState = document.getElementById('initialState');
+            const loadingState = document.getElementById('loadingState');
+            const resultState = document.getElementById('resultState');
+            const errorState = document.getElementById('errorState');
+            const transcriptResult = document.getElementById('transcriptResult');
+            const errorMessage = document.getElementById('errorMessage');
+            const copyBtn = document.getElementById('copyBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const tryAgainBtn = document.getElementById('tryAgainBtn');
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const youtubeUrl = document.getElementById('youtubeUrl').value.trim();
+                
+                if (!youtubeUrl) {
+                    showError('Please enter a valid YouTube URL');
+                    return;
+                }
+                
+                // Show loading state
+                initialState.classList.add('hidden');
+                resultState.classList.add('hidden');
+                errorState.classList.add('hidden');
+                loadingState.classList.remove('hidden');
+                
+                // Prepare request
+                const myHeaders = new Headers();
+                myHeaders.append("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
+                myHeaders.append("Accept", "*/*");
+                myHeaders.append("Host", "localhost");
+                myHeaders.append("Connection", "keep-alive");
+                
+                const formdata = new FormData();
+                formdata.append("url", youtubeUrl);
+                
+                const requestOptions = {
+                    method: 'POST',
+                    headers: myHeaders,
+                    body: formdata,
+                    redirect: 'follow'
+                };
+                
+                // Make API request
+                fetch("/v1/youtube/transcript", requestOptions)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(result => {
+                        transcriptResult.textContent = result;
+                        loadingState.classList.add('hidden');
+                        resultState.classList.remove('hidden');
+                    })
+                    .catch(error => {
+                        showError(`Failed to get transcript: ${error.message}`);
+                    });
+            });
+            
+            // Copy button functionality
+            copyBtn.addEventListener('click', function() {
+                const text = transcriptResult.textContent;
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyBtn.textContent = 'Copy';
+                        }, 2000);
+                    })
+                    .catch(() => {
+                        showError('Failed to copy text');
+                    });
+            });
+            
+            // Download button functionality
+            downloadBtn.addEventListener('click', function() {
+                const text = transcriptResult.textContent;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'youtube-transcript.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
+            // Try again button
+            tryAgainBtn.addEventListener('click', function() {
+                errorState.classList.add('hidden');
+                initialState.classList.remove('hidden');
+            });
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                loadingState.classList.add('hidden');
+                resultState.classList.add('hidden');
+                initialState.classList.add('hidden');
+                errorState.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

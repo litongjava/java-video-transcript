@@ -25,4 +25,18 @@ public class YoutubeTranscriptController {
     }
     return response;
   }
+  
+  public HttpResponse transcriptVideo(String videoId, String url) {
+    if (StrUtil.isNotBlank(url)) {
+      videoId = YouTubeIdUtil.extractVideoId(url);
+    }
+    HttpResponse response = TioRequestContext.getResponse();
+    String transcript = videoTranscriptService.transcriptVideo(videoId);
+    if (transcript != null) {
+      response.setString(transcript);
+    } else {
+
+    }
+    return response;
+  }
 }

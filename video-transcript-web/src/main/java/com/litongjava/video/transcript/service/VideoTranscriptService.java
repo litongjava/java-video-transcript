@@ -51,7 +51,7 @@ public class VideoTranscriptService {
           File partFile = new File(outputFiles[i]);
           ResponseVo responseVo = useOpenAi(partFile);
           if (responseVo.isOk()) {
-            stringBuffer.append("part ").append(i + 1).append(":").append(responseVo.getBodyString());
+            stringBuffer.append("part ").append(i + 1).append(":\r\n").append(responseVo.getBodyString());
           } else {
             log.error(responseVo.getBodyString());
           }
@@ -68,6 +68,16 @@ public class VideoTranscriptService {
     }
     return null;
   }
+  
+  public String transcriptVideo(String videoId) {
+    // 下载文件
+    File file = YtDlpUtils.downloadMp3(videoId, false);
+    if (file == null) {
+      return null;
+    }
+
+    return transcript(file);
+  }
 
   /**
    * 转写113分钟 需要 332454(ms).
@@ -78,4 +88,6 @@ public class VideoTranscriptService {
     ResponseVo responseVo = WhisperClient.transcriptions(file, WhisperResponseFormat.srt);
     return responseVo;
   }
+
+
 }
